@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -9,15 +10,17 @@ import (
 	"strings"
 )
 
-var decoder = map[rune]int{
-	'I': 1,
-	'V': 5,
-	'X': 10,
-	'L': 50,
-	'C': 100,
+var decoder = map[string]int{
+	"I":  1,
+	"IV": 4,
+	"V":  5,
+	"IX": 9,
+	"X":  10,
+	"XL": 40,
+	"L":  50,
+	"XC": 90,
+	"C":  100,
 }
-
-var list = [...]rune{'I', 'V', 'X', 'L', 'C'}
 
 func main() {
 	calc()
@@ -44,9 +47,13 @@ func calc() {
 		operand1, err := strconv.Atoi(splited[0])
 
 		if err != nil {
-			operand1 = fromRoman(splited[0])
+			operand1, err = fromRoman(splited[0])
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			if operand1 == 0 {
-				log.Fatal("Недопустимый операнд")
+				log.Fatal("invalid operand")
 			}
 			isroman1 = true
 		}
@@ -55,9 +62,14 @@ func calc() {
 		operand2, err := strconv.Atoi(splited[2])
 
 		if err != nil {
-			operand2 = fromRoman(splited[2])
+			operand2, err = fromRoman(splited[2])
+
+			if err != nil {
+				log.Fatal(err)
+			}
+
 			if operand2 == 0 {
-				log.Fatal("Недопустимый операнд")
+				log.Fatal("invalid operand")
 			}
 			isroman2 = true
 		}
@@ -98,34 +110,47 @@ func calc() {
 	}
 }
 
-func toRoman(num int) string {
-	i := len(list) - 1
-	n := num
-	var res string
-	for n > 0 {
-		for decoder[list[i]] > n {
-			i--
+func toRoman(arabic int) string {
+	roman := ""
+	values := []int{100, 90, 50, 40, 10, 9, 5, 4, 1}
+	symbols := []string{"C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"}
+
+	for i := 0; i < len(values); i++ {
+		for arabic >= values[i] {
+			arabic -= values[i]
+			roman += symbols[i]
 		}
-		res += string(list[i])
-		n -= decoder[list[i]]
 	}
 
-	return res
+	return roman
 }
 
-func fromRoman(roman string) int {
-	if len(roman) == 0 {
-		return 0
+func fromRoman(roman string) (int, error) {
+	arabic := 0
+	prevValue := 0
+
+	for i := len(roman) - 1; i >= 0; i-- {
+		currentSymbol := string(roman[i])
+		currentValue, ok := decoder[currentSymbol]
+
+		if !ok {
+			return 0, errors.New("invalid roman numeral character")
+		}
+
+		if currentValue < prevValue {
+			arabic -= currentValue
+		} else {
+			arabic += currentValue
+		}
+
+		prevValue = currentValue
 	}
-	first := decoder[rune(roman[0])]
-	if len(roman) == 1 {
-		return first
+
+	if toRoman(arabic) != roman {
+		return 0, errors.New("incorrect entry of the Roman number")
 	}
-	next := decoder[rune(roman[1])]
-	if next > first {
-		return (next - first) + fromRoman(roman[2:])
-	}
-	return first + fromRoman(roman[1:])
+
+	return arabic, nil
 }
 
 func input() (string, error) {
@@ -136,6 +161,10 @@ func input() (string, error) {
 		return "", err
 	}
 	text = strings.TrimSpace(text)
+
+	if text == "" {
+		return "", errors.New("empty string")
+	}
 
 	return text, nil
 }
